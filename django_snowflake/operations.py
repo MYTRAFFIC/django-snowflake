@@ -12,6 +12,7 @@ class DatabaseOperations(BaseDatabaseOperations):
         'AutoField': 'NUMBER',
         'BigAutoField': 'NUMBER',
         'SmallAutoField': 'NUMBER',
+        #'JSONField': 'VARIANT',
     }
     explain_prefix = 'EXPLAIN USING'
 
