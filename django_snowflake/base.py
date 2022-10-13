@@ -139,6 +139,11 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         else:
             raise ImproperlyConfigured(self.settings_is_missing % 'SCHEMA')
 
+        test_params = settings_dict.get('TEST')
+        if test_params:
+            conn_params['test_schema'] = self.ops.quote_name(test_params.get('SCHEMA', ''))
+            conn_params['test_database'] = self.ops.quote_name(test_params.get('NAME', conn_params.get('database', '')))
+
         return conn_params
 
     @async_unsafe
@@ -174,8 +179,14 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             cursor.execute(f'USE ROLE {params["ROLE"]}')
         if params.get("warehouse"):
             cursor.execute(f'USE WAREHOUSE {params["warehouse"]}')
-        if params.get("DATABASE"):
-            cursor.execute(f'USE DATABASE {params["DATABASE"]}')
+        if params.get("test_database"):
+            cursor.execute(f'USE DATABASE {params["test_database"]}')
+            if params.get("test_schema"):
+                cursor.execute(f'USE SCHEMA {params["test_schema"]}')
+        elif params.get("database"):
+            cursor.execute(f'USE DATABASE {params["database"]}')
+            if params.get("schema"):
+                cursor.execute(f'USE SCHEMA {params["schema"]}')
 
         return cursor
 
