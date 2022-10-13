@@ -17,19 +17,24 @@ class DatabaseCreation(BaseDatabaseCreation):
         return True
 
     def _execute_create_test_db(self, cursor, parameters, keepdb=False):
-        if not keepdb or not self._database_exists(cursor, parameters['dbname']):
+        dbname = parameters['dbname']
+        if not keepdb or not self._database_exists(cursor, dbname):
             # Try to create a database if keepdb=False or if keepdb=True and
             # the database doesn't exist.
             super()._execute_create_test_db(cursor, parameters, keepdb)
-        schema_name = self._quote_name(self.connection.get_connection_params()['test_schema'])
-        cursor.execute(f'CREATE SCHEMA IF NOT EXISTS {schema_name}')
-        cursor.execute(f'USE SCHEMA {schema_name}')
+            cursor.execute(f'USE DATABASE {dbname}')
+
+        schema_name = parameters.get('schema_name')
+        if schema_name:
+            schema_name = self._quote_name(schema_name)
+            cursor.execute(f'CREATE SCHEMA IF NOT EXISTS {schema_name}')
+            cursor.execute(f'USE SCHEMA {schema_name}')
 
     def _clone_test_db(self, suffix, verbosity, keepdb=False):
         source_database_name = self.connection.settings_dict['NAME']
         schema_name = self.connection.get_connection_params()['test_schema']
         target_database_name = self.get_test_db_clone_settings(suffix)['NAME']
-        
+
         test_db_params = {
             'dbname': self._quote_name(target_database_name),
             'schema_name': self._quote_name(schema_name),

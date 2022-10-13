@@ -180,9 +180,10 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         if params.get("warehouse"):
             cursor.execute(f'USE WAREHOUSE {params["warehouse"]}')
         if params.get("test_database"):
-            cursor.execute(f'USE DATABASE {params["test_database"]}')
-            if params.get("test_schema"):
-                cursor.execute(f'USE SCHEMA {params["test_schema"]}')
+            self.creation._execute_create_test_db(cursor, {
+                "dbname": params["test_database"],
+                "schema_name": params.get("test_schema"),
+            }, True)
         elif params.get("database"):
             cursor.execute(f'USE DATABASE {params["database"]}')
             if params.get("schema"):
