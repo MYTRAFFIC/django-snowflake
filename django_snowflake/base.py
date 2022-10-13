@@ -147,6 +147,26 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         return conn_params
 
     @async_unsafe
+    def connect(self):
+        super().connect()
+
+        params = self.get_connection_params()
+        with self.connection.cursor() as cursor:
+            if params.get("ROLE"):
+                cursor.execute(f'USE ROLE {params["ROLE"]}')
+            if params.get("warehouse"):
+                cursor.execute(f'USE WAREHOUSE {params["warehouse"]}')
+            if params.get("test_database"):
+                self.creation._execute_create_test_db(cursor, {
+                    "dbname": params["test_database"],
+                    "schema_name": params.get("test_schema"),
+                }, True)
+            elif params.get("database"):
+                cursor.execute(f'USE DATABASE {params["database"]}')
+                if params.get("schema"):
+                    cursor.execute(f'USE SCHEMA {params["schema"]}')
+
+    @async_unsafe
     def get_new_connection(self, conn_params):
         return Database.connect(**conn_params)
 
@@ -172,24 +192,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
     @async_unsafe
     def create_cursor(self, name=None):
-        params = self.get_connection_params()
-        cursor = self.connection.cursor()
-
-        if params.get("ROLE"):
-            cursor.execute(f'USE ROLE {params["ROLE"]}')
-        if params.get("warehouse"):
-            cursor.execute(f'USE WAREHOUSE {params["warehouse"]}')
-        if params.get("test_database"):
-            self.creation._execute_create_test_db(cursor, {
-                "dbname": params["test_database"],
-                "schema_name": params.get("test_schema"),
-            }, True)
-        elif params.get("database"):
-            cursor.execute(f'USE DATABASE {params["database"]}')
-            if params.get("schema"):
-                cursor.execute(f'USE SCHEMA {params["schema"]}')
-
-        return cursor
+        return self.connection.cursor()
 
     def make_cursor(self, cursor):
         return SnowflakeCursorWrapper(cursor, self)
