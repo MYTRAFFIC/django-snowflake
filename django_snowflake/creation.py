@@ -30,6 +30,26 @@ class DatabaseCreation(BaseDatabaseCreation):
             cursor.execute(f'CREATE SCHEMA IF NOT EXISTS {schema_name}')
             cursor.execute(f'USE SCHEMA {schema_name}')
 
+    def _create_test_db(self, verbosity, autoclobber, keepdb=False):
+        """
+        Internal implementation - create the test db tables.
+        """
+        test_database_name = self._get_test_db_name()
+
+        schema_name = self.connection.get_connection_params()['test_schema']
+        test_db_params = {
+            "dbname": self.connection.ops.quote_name(test_database_name),
+            "schema_name": self._quote_name(schema_name),
+            "suffix": self.sql_table_creation_suffix(),
+        }
+        # Create the test database and connect to it.
+        with self._nodb_cursor() as cursor:
+            if not keepdb:
+                cursor.execute("DROP SCHEMA %(schema_name)s" % test_db_params)
+            self._execute_create_test_db(cursor, test_db_params, keepdb)
+
+        return test_database_name
+
     def _clone_test_db(self, suffix, verbosity, keepdb=False):
         source_database_name = self.connection.settings_dict['NAME']
         schema_name = self.connection.get_connection_params()['test_schema']
