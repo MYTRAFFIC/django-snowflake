@@ -156,12 +156,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
                 cursor.execute(f'USE ROLE {params["ROLE"]}')
             if params.get("warehouse"):
                 cursor.execute(f'USE WAREHOUSE {params["warehouse"]}')
-            if params.get("test_database"):
-                self.creation._execute_create_test_db(cursor, {
-                    "dbname": params["test_database"],
-                    "schema_name": params.get("test_schema"),
-                }, True)
-            elif params.get("database"):
+            if params.get("database"):
                 cursor.execute(f'USE DATABASE {params["database"]}')
                 if params.get("schema"):
                     cursor.execute(f'USE SCHEMA {params["schema"]}')

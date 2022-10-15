@@ -1,5 +1,6 @@
 import sys
 
+from django.conf import settings
 from django.db.backends.base.creation import BaseDatabaseCreation
 
 
@@ -15,6 +16,25 @@ class DatabaseCreation(BaseDatabaseCreation):
                 return False
             raise
         return True
+
+    def create_test_db(
+        self, verbosity=1, autoclobber=False, serialize=True, keepdb=False
+    ):
+        test_database_name = self._get_test_db_name()
+        settings.DATABASES[self.connection.alias]["NAME"] = test_database_name
+        self.connection.settings_dict["NAME"] = test_database_name
+
+        test_schema_name = self._get_test_schema_name()
+        settings.DATABASES[self.connection.alias]["SCHEMA"] = test_schema_name
+        self.connection.settings_dict["SCHEMA"] = test_schema_name
+
+        return super().create_test_db(verbosity, autoclobber, serialize, keepdb)
+
+    def _get_test_schema_name(self):
+        test_settings = self.connection.settings_dict.get("TEST")
+        if test_settings and test_settings.get("SCHEMA"):
+            return test_settings["SCHEMA"]
+        return self.connection.settings_dict.get("SCHEMA")
 
     def _execute_create_test_db(self, cursor, parameters, keepdb=False):
         dbname = parameters['dbname']
