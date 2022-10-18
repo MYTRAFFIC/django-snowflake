@@ -139,11 +139,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         else:
             raise ImproperlyConfigured(self.settings_is_missing % 'SCHEMA')
 
-        test_params = settings_dict.get('TEST')
-        if test_params:
-            conn_params['test_schema'] = self.ops.quote_name(test_params.get('SCHEMA', ''))
-            conn_params['test_database'] = self.ops.quote_name(test_params.get('NAME', conn_params.get('database', '')))
-
         return conn_params
 
     @async_unsafe
