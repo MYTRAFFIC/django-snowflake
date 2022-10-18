@@ -17,14 +17,14 @@ class DatabaseCreation(BaseDatabaseCreation):
         return True
 
     def _execute_create_test_db(self, cursor, parameters, keepdb=False):
-        settings_dict = self.connection.settings_dict
-        if settings_dict.get('ROLE'):
-            cursor.execute(f'USE ROLE {settings_dict["ROLE"]}')
+        conn_params = self.connection.get_connection_params()
+        if conn_params.get('ROLE'):
+            cursor.execute(f'USE ROLE {conn_params["ROLE"]}')
         if not keepdb or not self._database_exists(cursor, parameters['dbname']):
             # Try to create a database if keepdb=False or if keepdb=True and
             # the database doesn't exist.
             super()._execute_create_test_db(cursor, parameters, keepdb)
-        schema_name = self._quote_name(settings_dict['SCHEMA'])
+        schema_name = self._quote_name(conn_params['schema'])
         cursor.execute(f'CREATE SCHEMA IF NOT EXISTS {schema_name}')
 
     def _clone_test_db(self, suffix, verbosity, keepdb=False):
