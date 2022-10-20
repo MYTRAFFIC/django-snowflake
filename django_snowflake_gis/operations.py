@@ -1,8 +1,7 @@
 from django.db import NotSupportedError
 from django.contrib.gis.db.backends.base.operations import BaseSpatialOperations
 from django.contrib.gis.db.backends.utils import SpatialOperator
-
-from django_snowflake.operations import DatabaseOperations as SnowflakeOperations
+from django_snowflake.operations import DatabaseOperations as SnowflakeDatabaseOperations
 
 from .adapter import SnowflakeAdapter
 
@@ -12,7 +11,7 @@ class DWithinOperator(SpatialOperator):
         super().__init__(func=func)
 
 
-class DatabaseOperations(SnowflakeOperations, BaseSpatialOperations):
+class DatabaseOperations(SnowflakeDatabaseOperations, BaseSpatialOperations):
     # adapter for geometry/geography points
     Adapter = SnowflakeAdapter
 
