@@ -10,6 +10,9 @@ DATABASES = {
         'SCHEMA': 'SCHEMA',
         'WAREHOUSE': os.environ['SNOWFLAKE_WAREHOUSE'],
         'TEST': {'NAME': 'TEST_DJANGO_' + str(uuid.uuid4()).upper()},
+        'OPTIONS': {
+            'ROLE': os.environ.get('SNOWFLAKE_ROLE', None),
+        },
     },
     'other': {
         'ENGINE': 'django_snowflake',
@@ -19,6 +22,9 @@ DATABASES = {
         'SCHEMA': 'SCHEMA',
         'WAREHOUSE': os.environ['SNOWFLAKE_WAREHOUSE'],
         'TEST': {'NAME': 'TEST_DJANGO_OTHER_' + str(uuid.uuid4()).upper()},
+        'OPTIONS': {
+            'ROLE': os.environ.get('SNOWFLAKE_ROLE', None),
+        },
     },
 }
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
