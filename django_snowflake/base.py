@@ -146,8 +146,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         super().connect()
 
         params = self.get_connection_params()
-        print("connection_params")
-        print(params)
         with self.connection.cursor() as cursor:
             if params.get("ROLE"):
                 cursor.execute(f'USE ROLE {params["ROLE"]}')
