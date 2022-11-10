@@ -24,7 +24,7 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     supports_indexes = False
     supports_index_column_ordering = False
     # Not yet implemented in this backend.
-    supports_json_field = False
+    supports_json_field = True
     supports_over_clause = True
     supports_partial_indexes = False
     # https://docs.snowflake.com/en/sql-reference/functions-regexp.html#backreferences
