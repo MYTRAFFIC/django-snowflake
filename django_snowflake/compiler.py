@@ -22,7 +22,8 @@ class SQLInsertCompiler(compiler.SQLInsertCompiler, SQLCompiler):
                 for index, field in enumerate(self.query.fields)
             ])
             select = f'SELECT {select_columns}'
-            from_values = f'FROM VALUES ({", ".join("%s" for field in self.query.fields)})'
+            placeholders = f'({", ".join("%s" for field in self.query.fields)})'
+            from_values = f'FROM VALUES {", ".join([placeholders] * len(self.query.objs))}'
 
             result = f"{insert_into} {select} {from_values}"
 
