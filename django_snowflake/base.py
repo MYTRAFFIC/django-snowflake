@@ -1,6 +1,6 @@
 from django.core.exceptions import ImproperlyConfigured
 from django.db.backends.base.base import BaseDatabaseWrapper
-from django.db.backends.utils import CursorWrapper
+from django.db.backends.utils import CursorWrapper, CursorDebugWrapper
 from django.utils.asyncio import async_unsafe
 from psycopg2.sql import Composed
 
@@ -19,6 +19,13 @@ from .schema import DatabaseSchemaEditor                    # NOQA isort:skip
 
 
 class SnowflakeCursorWrapper(CursorWrapper):
+    def execute(self, sql, params=None):
+        if isinstance(sql, Composed):
+            sql = composed_as_string(sql)
+        return super().execute(sql, params)
+
+
+class SnowflakeCursorDebugWrapper(CursorWrapper):
     def execute(self, sql, params=None):
         if isinstance(sql, Composed):
             sql = composed_as_string(sql)
@@ -188,7 +195,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         return SnowflakeCursorWrapper(cursor, self)
 
     def make_debug_cursor(self, cursor):
-        return SnowflakeCursorWrapper(cursor, self)
+        return SnowflakeCursorDebugWrapper(cursor, self)
 
     def _set_autocommit(self, autocommit):
         with self.wrap_database_errors:
