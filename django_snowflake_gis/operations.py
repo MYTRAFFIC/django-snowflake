@@ -11,6 +11,11 @@ class DWithinOperator(SpatialOperator):
         super().__init__(func=func)
 
 
+class CoveredByOperator(SpatialOperator):
+    def __init__(self, func="ST_COVEREDBY"):
+        super().__init__(func=func)
+
+
 class DatabaseOperations(SnowflakeDatabaseOperations, BaseSpatialOperations):
     # adapter for geometry/geography points
     Adapter = SnowflakeAdapter
@@ -21,6 +26,7 @@ class DatabaseOperations(SnowflakeDatabaseOperations, BaseSpatialOperations):
 
     gis_operators = {
         "dwithin": DWithinOperator(),
+        "coveredby": CoveredByOperator(),
     }
 
     def last_executed_query(self, cursor, sql, params):
