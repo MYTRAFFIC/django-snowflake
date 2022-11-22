@@ -25,7 +25,7 @@ class SnowflakeCursorWrapper(CursorWrapper):
         return super().execute(sql, params)
 
 
-class SnowflakeCursorDebugWrapper(CursorWrapper):
+class SnowflakeCursorDebugWrapper(CursorDebugWrapper):
     def execute(self, sql, params=None):
         if isinstance(sql, Composed):
             sql = composed_as_string(sql)
