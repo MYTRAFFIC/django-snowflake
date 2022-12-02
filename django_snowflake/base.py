@@ -136,6 +136,9 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         else:
             raise ImproperlyConfigured(self.settings_is_missing % 'ACCOUNT')
 
+        if settings_dict.get('ROLE'):
+            conn_params['role'] = settings_dict['ROLE']
+
         if settings_dict.get('WAREHOUSE'):
             conn_params['warehouse'] = self.ops.quote_name(settings_dict['WAREHOUSE'])
         else:
@@ -147,21 +150,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             raise ImproperlyConfigured(self.settings_is_missing % 'SCHEMA')
 
         return conn_params
-
-    @async_unsafe
-    def connect(self):
-        super().connect()
-
-        params = self.get_connection_params()
-        with self.connection.cursor() as cursor:
-            if params.get("ROLE"):
-                cursor.execute(f'USE ROLE {params["ROLE"]}')
-            if params.get("warehouse"):
-                cursor.execute(f'USE WAREHOUSE {params["warehouse"]}')
-            if params.get("database"):
-                cursor.execute(f'USE DATABASE {params["database"]}')
-                if params.get("schema"):
-                    cursor.execute(f'USE SCHEMA {params["schema"]}')
 
     @async_unsafe
     def get_new_connection(self, conn_params):
