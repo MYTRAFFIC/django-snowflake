@@ -149,6 +149,10 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         else:
             raise ImproperlyConfigured(self.settings_is_missing % 'SCHEMA')
 
+        conn_params.setdefault("session_parameters", {})[
+            "TIMEZONE"
+        ] = self.timezone_name
+
         return conn_params
 
     @async_unsafe
@@ -156,15 +160,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         return Database.connect(**conn_params)
 
     def ensure_timezone(self):
-        if self.connection is None:
-            return False
-        with self.connection.cursor() as cursor:
-            conn_timezone_name = cursor.execute("SHOW PARAMETERS LIKE 'TIMEZONE'").fetchone()[1]
-        timezone_name = self.timezone_name
-        if timezone_name and conn_timezone_name != timezone_name:
-            with self.connection.cursor() as cursor:
-                cursor.execute("ALTER SESSION SET TIMEZONE=%s", [timezone_name])
-            return True
         return False
 
     def init_connection_state(self):
