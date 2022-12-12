@@ -1,6 +1,6 @@
 from django.core.exceptions import ImproperlyConfigured
 from django.db.backends.base.base import BaseDatabaseWrapper
-from django.db.backends.utils import CursorWrapper, CursorDebugWrapper
+from django.db.backends.utils import CursorDebugWrapper, CursorWrapper
 from django.utils.asyncio import async_unsafe
 from psycopg2.sql import Composed
 
@@ -158,9 +158,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     @async_unsafe
     def get_new_connection(self, conn_params):
         return Database.connect(**conn_params)
-
-    def ensure_timezone(self):
-        return False
 
     def init_connection_state(self):
         timezone_changed = self.ensure_timezone()
