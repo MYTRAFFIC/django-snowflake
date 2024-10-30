@@ -1,93 +1,109 @@
+from itertools import chain
+
+from django.db.models import JSONField
 from django.db.models.sql import compiler
 
 
-class SQLCompiler(compiler.SQLCompiler):
-    pass
-
-
-class SQLDeleteCompiler(compiler.SQLDeleteCompiler, SQLCompiler):
-    pass
-
-
-class SQLInsertCompiler(compiler.SQLInsertCompiler, SQLCompiler):
+class SQLInsertCompiler(compiler.SQLInsertCompiler):
     # List of fields' internal type that should be parsed as JSON.
     # You can add to this list to support e.g. Array.
     json_fields = {"JSONField"}
 
     def as_sql(self):
-        """
-        When inserting VARIANT, OBJECT or ARRAY values, the "INSERT INTO ... SELECT"
-        format is required. PARSE_JSON(), TO_VARIANT() and other functions like
-        these cannot be used in "INSERT INTO ... VALUES (...)". Read more:
-        https://docs.snowflake.com/en/sql-reference/data-types-semistructured.html#example-of-inserting-a-variant
-
-        Ex:
-        INSERT INTO my_table(col1, col2, col3)
-        VALUES (TO_VARIANT(val1), PARSE_JSON(val2), val3)
-
-         |
-         |  becomes
-         V
-
-        INSERT INTO my_table(col1, col2, col3)
-        SELECT
-            TO_VARIANT(Column1) as col1,
-            PARSE_JSON(Column2) as col2,
-            Column3 as col3
-        FROM VALUES (val1, val2, val3)
-
-        To simplify things, as Snowflake doesn't support returning fields, we
-        use this form for all inserts.
-        """
         # We don't need quote_name_unless_alias() here, since these are all
         # going to be column names (so we can avoid the extra overhead).
         qn = self.connection.ops.quote_name
         opts = self.query.get_meta()
         insert_statement = self.connection.ops.insert_statement(
-            ignore_conflicts=self.query.ignore_conflicts
+            on_conflict=self.query.on_conflict,
         )
         result = ["%s %s" % (insert_statement, qn(opts.db_table))]
         fields = self.query.fields or [opts.pk]
         result.append("(%s)" % ", ".join(qn(f.column) for f in fields))
 
-        # Custom part, we add an intermediary SELECT
-        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-        select_columns = ", ".join([
-            f"PARSE_JSON(Column{index + 1}) AS {field.column}"
-            if field.get_internal_type() in self.json_fields
-            else f"Column{index + 1} AS {field.column}"
-            for index, field in enumerate(self.query.fields)
-        ])
-        select = f'SELECT {select_columns} FROM'
-        result.append(select)
-
-        # End of custom part
-        #
-        # After this, we only keep the code for bulk insert for simplification.
-
-        value_rows = [
-            [
-                self.prepare_value(field, self.pre_save_val(field, obj))
-                for field in fields
+        select_columns = []
+        if self.query.fields:
+            value_rows = [
+                [
+                    self.prepare_value(field, self.pre_save_val(field, obj))
+                    for field in fields
+                ]
+                for obj in self.query.objs
             ]
-            for obj in self.query.objs
-        ]
+            has_json_field = False
+            for i, field in enumerate(fields, 1):
+                if field.get_internal_type() in self.json_fields:
+                    has_json_field = True
+                    select_columns.append(f'parse_json(${i})')
+                else:
+                    select_columns.append(f'${i}')
+            if not has_json_field:
+                select_columns = []
+        else:
+            # An empty object.
+            value_rows = [
+                [self.connection.ops.pk_default_value()] for _ in self.query.objs
+            ]
+            fields = [None]
+
+        # Currently the backends just accept values when generating bulk
+        # queries and generate their own placeholders. Doing that isn't
+        # necessary and it should be possible to use placeholders and
+        # expressions in bulk inserts too.
+        can_bulk = (
+            not self.returning_fields and self.connection.features.has_bulk_insert
+        )
+
         placeholder_rows, param_rows = self.assemble_as_sql(fields, value_rows)
 
-        result.append(self.connection.ops.bulk_insert_sql(fields, placeholder_rows))
-
-        ignore_conflicts_suffix_sql = self.connection.ops.ignore_conflicts_suffix_sql(
-            ignore_conflicts=self.query.ignore_conflicts
+        on_conflict_suffix_sql = self.connection.ops.on_conflict_suffix_sql(
+            fields,
+            self.query.on_conflict,
+            (f.column for f in self.query.update_fields),
+            (f.column for f in self.query.unique_fields),
         )
-        if ignore_conflicts_suffix_sql:
-            result.append(ignore_conflicts_suffix_sql)
-        return [(" ".join(result), tuple(p for ps in param_rows for p in ps))]
+        if (
+            self.returning_fields
+            and self.connection.features.can_return_columns_from_insert
+        ):
+            if self.connection.features.can_return_rows_from_bulk_insert:
+                result.append(
+                    self.connection.ops.bulk_insert_sql(fields, placeholder_rows)
+                )
+                params = param_rows
+            else:
+                result.append("VALUES (%s)" % ", ".join(placeholder_rows[0]))
+                params = [param_rows[0]]
+            if on_conflict_suffix_sql:
+                result.append(on_conflict_suffix_sql)
+            # Skip empty r_sql to allow subclasses to customize behavior for
+            # 3rd party backends. Refs #19096.
+            r_sql, self.returning_params = self.connection.ops.return_insert_columns(
+                self.returning_fields
+            )
+            if r_sql:
+                result.append(r_sql)
+                params += [self.returning_params]
+            return [(" ".join(result), tuple(chain.from_iterable(params)))]
+
+        if select_columns:
+            result.append('SELECT ' + (", ".join(c for c in select_columns)) + ' FROM')
+
+        if can_bulk:
+            result.append(self.connection.ops.bulk_insert_sql(fields, placeholder_rows))
+            if on_conflict_suffix_sql:
+                result.append(on_conflict_suffix_sql)
+            return [(" ".join(result), tuple(p for ps in param_rows for p in ps))]
+        else:
+            if on_conflict_suffix_sql:
+                result.append(on_conflict_suffix_sql)
+            return [
+                (" ".join(result + ["VALUES (%s)" % ", ".join(p)]), vals)
+                for p, vals in zip(placeholder_rows, param_rows)
+            ]
 
 
-class SQLUpdateCompiler(compiler.SQLUpdateCompiler, SQLCompiler):
-    pass
-
-
-class SQLAggregateCompiler(compiler.SQLAggregateCompiler, SQLCompiler):
-    pass
+SQLCompiler = compiler.SQLCompiler
+SQLDeleteCompiler = compiler.SQLDeleteCompiler
+SQLUpdateCompiler = compiler.SQLUpdateCompiler
+SQLAggregateCompiler = compiler.SQLAggregateCompiler

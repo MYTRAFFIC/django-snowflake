@@ -24,7 +24,8 @@ class DatabaseClient(BaseDatabaseClient):
         client_session_keep_alive = options.get('client_session_keep_alive')
         passcode = options.get('passcode')
         passcode_in_password = options.get('passcode_in_password')
-        private_key = options.get('private_key')
+        private_key_file = options.get('private_key_file')
+        private_key_file_pwd = options.get('private_key_file_pwd')
         role = options.get('role')
         token = options.get('token')
 
@@ -33,7 +34,7 @@ class DatabaseClient(BaseDatabaseClient):
         if authenticator:
             args += ['--authenticator', authenticator]
         if client_session_keep_alive:
-            args += ['--client-session-keep-alive', client_session_keep_alive]
+            args += ['--client-session-keep-alive']
         if dbname:
             args += ['-d', dbname]
         if host:
@@ -41,9 +42,9 @@ class DatabaseClient(BaseDatabaseClient):
         if passcode:
             args += ['--mfa-passcode', passcode]
         if passcode_in_password:
-            args += ['--mfa-passcode-in-password', passcode_in_password]
-        if private_key:
-            args += ['--private-key-path', private_key]
+            args += ['--mfa-passcode-in-password']
+        if private_key_file:
+            args += ['--private-key-path', private_key_file]
         if role:
             args += ['-r', role]
         if schema:
@@ -58,6 +59,8 @@ class DatabaseClient(BaseDatabaseClient):
         env = {}
         if password:
             env['SNOWSQL_PWD'] = password
+        if private_key_file_pwd:
+            env['SNOWSQL_PRIVATE_KEY_PASSPHRASE'] = private_key_file_pwd
         return args, (env or None)
 
     def runshell(self, parameters):

@@ -1,3 +1,5 @@
+import os
+
 from django.core.exceptions import ImproperlyConfigured
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.backends.utils import CursorDebugWrapper, CursorWrapper
@@ -10,6 +12,7 @@ except ImportError as e:
     raise ImproperlyConfigured("Error loading snowflake connector module: %s" % e)
 
 # Some of these import snowflake connector, so import them after checking if it's installed.
+from . import __version__                                   # NOQA isort:skip
 from .client import DatabaseClient                          # NOQA isort:skip
 from .creation import DatabaseCreation                      # NOQA isort:skip
 from .features import DatabaseFeatures                      # NOQA isort:skip
@@ -109,6 +112,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     introspection_class = DatabaseIntrospection
     ops_class = DatabaseOperations
 
+    password_not_required_options = ('private_key', 'private_key_file', 'authenticator')
     settings_is_missing = "settings.DATABASES is missing '%s' for 'django_snowflake'."
 
     def get_connection_params(self):
@@ -117,6 +121,8 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             'interpolate_empty_sequences':  True,
             **settings_dict['OPTIONS'],
         }
+        if os.environ.get('RUNNING_DJANGOS_TEST_SUITE') != 'true':
+            conn_params['application'] = 'Django_SnowflakeConnector_%s' % __version__
 
         if settings_dict['NAME']:
             conn_params['database'] = self.ops.quote_name(settings_dict['NAME'])
@@ -128,7 +134,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
         if settings_dict['PASSWORD']:
             conn_params['password'] = settings_dict['PASSWORD']
-        elif 'authenticator' not in conn_params:
+        elif all(x not in conn_params for x in self.password_not_required_options):
             raise ImproperlyConfigured(self.settings_is_missing % 'PASSWORD')
 
         if settings_dict.get('ACCOUNT'):
@@ -160,6 +166,10 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         return Database.connect(**conn_params)
 
     def init_connection_state(self):
+        # AUTOINCREMENT IDs must be monotonically increasing in order for
+        # DatabaseOperations.last_insert_id() to fetch the correct ID.
+        with self.connection.cursor() as cursor:
+            cursor.execute("ALTER SESSION SET NOORDER_SEQUENCE_AS_DEFAULT=False")
         timezone_changed = self.ensure_timezone()
         if timezone_changed:
             # Commit after setting the time zone (see #17062)

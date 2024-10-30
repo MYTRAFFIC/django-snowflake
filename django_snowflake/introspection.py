@@ -1,11 +1,13 @@
 from collections import namedtuple
 
 from django.db.backends.base.introspection import (
-    BaseDatabaseIntrospection, FieldInfo as BaseFieldInfo, TableInfo,
+    BaseDatabaseIntrospection, FieldInfo as BaseFieldInfo,
+    TableInfo as BaseTableInfo,
 )
 from django.utils.regex_helper import _lazy_re_compile
 
-FieldInfo = namedtuple('FieldInfo', BaseFieldInfo._fields + ('pk',))
+FieldInfo = namedtuple('FieldInfo', BaseFieldInfo._fields + ('pk', 'comment'))
+TableInfo = namedtuple('TableInfo', BaseTableInfo._fields + ('comment',))
 collation_re = _lazy_re_compile(r"^VARCHAR\(\d+\) COLLATE '([\w+\-]+)'$")
 field_size_re = _lazy_re_compile(r'^[A-Z]+\((\d+)\)')
 precision_and_scale_re = _lazy_re_compile(r'^NUMBER\((\d+),(\d+)\)$')
@@ -50,6 +52,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         'TIME': 'TimeField',
         'TIMESTAMP_LTZ': 'DateTimeField',
         'VARCHAR': 'CharField',
+        'VARIANT': 'JSONField',
     }
 
     def get_constraints(self, cursor, table_name):
@@ -125,7 +128,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
     def get_field_type(self, data_type, description):
         field_type = super().get_field_type(data_type, description)
         # 16777216 is the default size if max_length isn't specified.
-        if data_type == 'VARCHAR' and description.internal_size == 16777216:
+        if data_type == 'VARCHAR' and description.display_size == 16777216:
             return 'TextField'
         # Handle NUMBER if it's something besides BigAutoField.
         if data_type == 'NUMBER':
@@ -150,16 +153,22 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         table_info = cursor.fetchall()
         return [
             FieldInfo(
-                # name, type_code, display_size,
-                self.identifier_converter(name), get_data_type(data_type), None,
-                # internal_size, precision, scale,
-                get_field_size(data_type), *get_precision_and_scale(data_type),
-                # null_ok, default, collation, pk,
-                null == 'Y', default, get_collation(data_type), pk == 'Y',
+                self.identifier_converter(name),  # name
+                get_data_type(data_type),  # type_code
+                get_field_size(data_type),  # display_size
+                None,  # internal_size
+                *get_precision_and_scale(data_type),  # precision, scale
+                null == 'Y',  # null_ok
+                default,  # default
+                get_collation(data_type),  # collation
+                pk == 'Y',  # pk
+                comment,  # comment
             )
             for (
                 name, data_type, kind, null, default, pk, unique_key, check,
-                expression, comment, policy_name,
+                # *_ ignores policy_name, privacy_domain, and any future
+                # columns in DESCRIBE TABLE output.
+                expression, comment, *_
             ) in table_info
         ]
 
@@ -171,7 +180,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
             return f'"{name}"'
         # TODO: If the identifier field isn't uppercase, then it needs to be
         # quoted to preserve its case.
-        # https://github.com/cedar-team/django-snowflake/issues/43
+        # https://github.com/Snowflake-Labs/django-snowflake/issues/43
         # This may require some changes in Django itself to work properly. This
         # would replace the special handling of SYS_CONSTRAINT_ above.
         # if name != name.upper():
@@ -182,8 +191,20 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         return name.lower()
 
     def get_table_list(self, cursor):
-        cursor.execute('SHOW TERSE TABLES')
-        tables = [TableInfo(self.identifier_converter(row[1]), 't') for row in cursor.fetchall()]
-        cursor.execute('SHOW TERSE VIEWS')
-        views = [TableInfo(self.identifier_converter(row[1]), 'v') for row in cursor.fetchall()]
+        cursor.execute('SHOW TABLES')
+        tables = [
+            TableInfo(
+                self.identifier_converter(row[1]),  # table name
+                't',  # 't' for table
+                row[5],  # comment
+            ) for row in cursor.fetchall()
+        ]
+        cursor.execute('SHOW VIEWS')
+        views = [
+            TableInfo(
+                self.identifier_converter(row[1]),   # view name
+                'v',  # 'v' for view
+                row[6],  # comment
+            ) for row in cursor.fetchall()
+        ]
         return tables + views
