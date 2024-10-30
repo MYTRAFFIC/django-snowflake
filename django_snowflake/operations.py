@@ -7,14 +7,11 @@ from django.utils import timezone
 
 
 class DatabaseOperations(BaseDatabaseOperations):
-    compiler_module = "django_snowflake.compiler"
-
     cast_char_field_without_max_length = 'varchar'
     cast_data_types = {
         'AutoField': 'NUMBER',
         'BigAutoField': 'NUMBER',
         'SmallAutoField': 'NUMBER',
-        'JSONField': 'VARIANT',
     }
     compiler_module = 'django_snowflake.compiler'
     explain_prefix = 'EXPLAIN USING'

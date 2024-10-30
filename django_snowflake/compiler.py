@@ -1,6 +1,5 @@
 from itertools import chain
 
-from django.db.models import JSONField
 from django.db.models.sql import compiler
 
 

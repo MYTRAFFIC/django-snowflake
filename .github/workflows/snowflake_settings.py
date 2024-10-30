@@ -11,7 +11,7 @@ DATABASES = {
         'WAREHOUSE': os.environ['SNOWFLAKE_WAREHOUSE'],
         'TEST': {'NAME': 'TEST_DJANGO_' + str(uuid.uuid4()).upper()},
         'OPTIONS': {
-            'ROLE': os.environ.get('SNOWFLAKE_ROLE', None),
+            'role': os.environ.get('SNOWFLAKE_ROLE', None),
         },
     },
     'other': {
@@ -23,7 +23,7 @@ DATABASES = {
         'WAREHOUSE': os.environ['SNOWFLAKE_WAREHOUSE'],
         'TEST': {'NAME': 'TEST_DJANGO_OTHER_' + str(uuid.uuid4()).upper()},
         'OPTIONS': {
-            'ROLE': os.environ.get('SNOWFLAKE_ROLE', None),
+            'role': os.environ.get('SNOWFLAKE_ROLE', None),
         },
     },
 }

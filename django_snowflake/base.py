@@ -2,9 +2,7 @@ import os
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db.backends.base.base import BaseDatabaseWrapper
-from django.db.backends.utils import CursorDebugWrapper, CursorWrapper
 from django.utils.asyncio import async_unsafe
-from psycopg2.sql import Composed
 
 try:
     import snowflake.connector as Database
@@ -21,24 +19,6 @@ from .operations import DatabaseOperations                  # NOQA isort:skip
 from .schema import DatabaseSchemaEditor                    # NOQA isort:skip
 
 
-class SnowflakeCursorWrapper(CursorWrapper):
-    def execute(self, sql, params=None):
-        if isinstance(sql, Composed):
-            sql = composed_as_string(sql)
-        return super().execute(sql, params)
-
-
-class SnowflakeCursorDebugWrapper(CursorDebugWrapper):
-    def execute(self, sql, params=None):
-        if isinstance(sql, Composed):
-            sql = composed_as_string(sql)
-        return super().execute(sql, params)
-
-
-def composed_as_string(sql):
-    if isinstance(sql, Composed):
-        return ''.join([composed_as_string(s) for s in sql.seq])
-    return sql.string
 
 
 class DatabaseWrapper(BaseDatabaseWrapper):
@@ -71,7 +51,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'SmallIntegerField': 'NUMBER(5,0)',
         'TextField': 'VARCHAR',
         'TimeField': 'TIME',
-        'UUIDField': 'VARCHAR(38)',
+        'UUIDField': 'VARCHAR(32)',
     }
     data_types_suffix = {
         'AutoField': 'AUTOINCREMENT',
@@ -142,9 +122,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         else:
             raise ImproperlyConfigured(self.settings_is_missing % 'ACCOUNT')
 
-        if settings_dict.get('ROLE'):
-            conn_params['role'] = settings_dict['ROLE']
-
         if settings_dict.get('WAREHOUSE'):
             conn_params['warehouse'] = self.ops.quote_name(settings_dict['WAREHOUSE'])
         else:
@@ -180,12 +157,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     @async_unsafe
     def create_cursor(self, name=None):
         return self.connection.cursor()
-
-    def make_cursor(self, cursor):
-        return SnowflakeCursorWrapper(cursor, self)
-
-    def make_debug_cursor(self, cursor):
-        return SnowflakeCursorDebugWrapper(cursor, self)
 
     def _set_autocommit(self, autocommit):
         with self.wrap_database_errors:

@@ -29,13 +29,6 @@ class DatabaseOperations(SnowflakeDatabaseOperations, BaseSpatialOperations):
         "coveredby": CoveredByOperator(),
     }
 
-    def last_executed_query(self, cursor, sql, params):
-        # https://www.psycopg.org/docs/cursor.html#cursor.query
-        # The query attribute is a Psycopg extension to the DB API 2.0.
-        if cursor.query is not None:
-            return cursor.query
-        return None
-
     def geo_db_type(self, f):
         """
         Return the database field type for the given spatial field.
@@ -52,11 +45,6 @@ class DatabaseOperations(SnowflakeDatabaseOperations, BaseSpatialOperations):
             return "geography"
         else:
             return "geometry"
-
-    def quote_name(self, name):
-        if name.startswith('"') and name.endswith('"'):
-            return name  # Quoting once is enough.
-        return '"%s"' % name.upper().replace('.', '"."')
 
     def get_distance(self, f, value, lookup_type):
         """
